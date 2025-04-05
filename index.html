@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Currency Converter</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #fafeff;
+      color: #474747;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      background-color: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      max-width: 400px;
+      width: 100%;
+    }
+
+    h1 {
+      text-align: center;
+      color: #176285;
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+
+    input, select, button {
+      width: 100%;
+      padding: 0.75rem;
+      margin-bottom: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+
+    .swap-btn {
+      margin: 0.5rem 0 1rem;
+      background: #e0e0e0;
+      color: #176285;
+      border: none;
+      font-weight: bold;
+    }
+
+    button {
+      background-color: #176285;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #144f6b;
+    }
+
+    .result {
+      text-align: center;
+      font-size: 1.2rem;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Currency Converter</h1>
+    <label for="amount">Amount</label>
+    <input type="number" id="amount" placeholder="Enter amount">
+
+    <label for="from-currency">From (Base Currency)</label>
+    <select id="from-currency"> </select>
+
+    <button class="swap-btn" onclick="swapCurrencies()">↔ Swap</button>
+
+    <label for="to-currency">To (Target Currency)</label>
+    <select id="to-currency"> </select>
+
+    <button onclick="convertCurrency()">Convert</button>
+    <div class="result" id="result"></div>
+  </div>
+
+  <script>
+    const currencySymbols = {
+      USD: "$", EUR: "€", JPY: "¥", GBP: "£", AUD: "A$", CAD: "C$", SGD: "S$",
+      PHP: "₱", INR: "₹", CNY: "¥", HKD: "HK$", KRW: "₩", THB: "฿", MYR: "RM",
+      AED: "د.إ", SAR: "﷼", QAR: "﷼", KWD: "د.ك", BHD: "ب.د", OMR: "﷼"
+    };
+
+    const currencies = Object.keys(currencySymbols);
+
+    const fromSelect = document.getElementById('from-currency');
+    const toSelect = document.getElementById('to-currency');
+    currencies.forEach(code => {
+      const option1 = document.createElement('option');
+      option1.value = code;
+      option1.textContent = `${code} - ${currencySymbols[code] || ''}`;
+      fromSelect.appendChild(option1.cloneNode(true));
+      toSelect.appendChild(option1);
+    });
+    fromSelect.value = 'PHP';
+    toSelect.value = 'USD';
+
+    function swapCurrencies() {
+      const temp = fromSelect.value;
+      fromSelect.value = toSelect.value;
+      toSelect.value = temp;
+    }
+
+    async function convertCurrency() {
+      const amount = parseFloat(document.getElementById('amount').value);
+      const from = fromSelect.value;
+      const to = toSelect.value;
+      const resultDiv = document.getElementById('result');
+
+      if (!amount || isNaN(amount)) {
+        resultDiv.textContent = 'Please enter a valid amount.';
+        return;
+      }
+
+      if (from === to) {
+        resultDiv.textContent = `${amount} ${from} = ${amount.toFixed(2)} ${to}`;
+        return;
+      }
+
+      const cacheKey = `${from}-${to}`;
+
+      try {
+        const res = await fetch(`https://api.frankfurter.app/latest?amount=${amount}&from=${from}&to=${to}`);
+        const data = await res.json();
+
+        if (data && data.rates && data.rates[to]) {
+          const converted = data.rates[to].toFixed(2);
+          const symbol = currencySymbols[to] || to;
+          resultDiv.textContent = `${amount} ${from} = ${symbol}${converted} ${to}`;
+          localStorage.setItem(cacheKey, JSON.stringify({ rate: data.rates[to], timestamp: Date.now() }));
+        } else {
+          resultDiv.textContent = 'Conversion failed. Please try again later.';
+        }
+      } catch (error) {
+        console.warn('Offline mode - using cached rate');
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const { rate } = JSON.parse(cached);
+          const converted = (rate * amount).toFixed(2);
+          const symbol = currencySymbols[to] || to;
+          resultDiv.textContent = `${amount} ${from} = ${symbol}${converted} ${to} (offline)`;
+        } else {
+          resultDiv.textContent = 'No cached data available. Please connect to the internet.';
+        }
+      }
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        convertCurrency();
+      }
+    });
+  </script>
+</body>
+</html>
