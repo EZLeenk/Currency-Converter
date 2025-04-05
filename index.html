@@ -78,7 +78,7 @@
   <div class="container">
     <h1>Currency Converter</h1>
     <label for="amount">Amount</label>
-    <input type="number" id="amount" placeholder="Enter amount">
+    <input type="text" id="amount" placeholder="Enter amount">
 
     <label for="from-currency">From (Base Currency)</label>
     <select id="from-currency"> </select>
@@ -103,6 +103,8 @@
 
     const fromSelect = document.getElementById('from-currency');
     const toSelect = document.getElementById('to-currency');
+    const amountInput = document.getElementById('amount');
+
     currencies.forEach(code => {
       const option1 = document.createElement('option');
       option1.value = code;
@@ -114,13 +116,19 @@
     toSelect.value = 'USD';
 
     function swapCurrencies() {
-      const temp = fromSelect.value;
-      fromSelect.value = toSelect.value;
-      toSelect.value = temp;
+  const temp = fromSelect.value;
+  fromSelect.value = toSelect.value;
+  toSelect.value = temp;
+  convertCurrency();
+}
+
+    function formatNumberWithCommas(x) {
+      return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
 
     async function convertCurrency() {
-      const amount = parseFloat(document.getElementById('amount').value);
+      const rawAmount = amountInput.value.replace(/,/g, '');
+      const amount = parseFloat(rawAmount);
       const from = fromSelect.value;
       const to = toSelect.value;
       const resultDiv = document.getElementById('result');
@@ -131,7 +139,8 @@
       }
 
       if (from === to) {
-        resultDiv.textContent = `${amount} ${from} = ${amount.toFixed(2)} ${to}`;
+        const formatted = formatNumberWithCommas(amount.toFixed(2));
+        resultDiv.textContent = `${currencySymbols[to] || ''}${formatted}`;
         return;
       }
 
@@ -142,9 +151,9 @@
         const data = await res.json();
 
         if (data && data.rates && data.rates[to]) {
-          const converted = data.rates[to].toFixed(2);
+          const converted = formatNumberWithCommas(data.rates[to].toFixed(2));
           const symbol = currencySymbols[to] || to;
-          resultDiv.textContent = `${amount} ${from} = ${symbol}${converted} ${to}`;
+          resultDiv.textContent = `${currencySymbols[from] || from}${formatNumberWithCommas(amount)} = ${symbol}${converted}`;
           localStorage.setItem(cacheKey, JSON.stringify({ rate: data.rates[to], timestamp: Date.now() }));
         } else {
           resultDiv.textContent = 'Conversion failed. Please try again later.';
@@ -154,9 +163,9 @@
         const cached = localStorage.getItem(cacheKey);
         if (cached) {
           const { rate } = JSON.parse(cached);
-          const converted = (rate * amount).toFixed(2);
+          const converted = formatNumberWithCommas((rate * amount).toFixed(2));
           const symbol = currencySymbols[to] || to;
-          resultDiv.textContent = `${amount} ${from} = ${symbol}${converted} ${to} (offline)`;
+          resultDiv.textContent = `${currencySymbols[from] || from}${formatNumberWithCommas(amount)} = ${symbol}${converted} (offline)`;
         } else {
           resultDiv.textContent = 'No cached data available. Please connect to the internet.';
         }
@@ -166,6 +175,15 @@
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') {
         convertCurrency();
+      }
+    });
+
+    amountInput.addEventListener('input', function (e) {
+      const val = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
+      if (!isNaN(val) && val) {
+        e.target.value = formatNumberWithCommas(val);
+      } else {
+        e.target.value = '';
       }
     });
   </script>
